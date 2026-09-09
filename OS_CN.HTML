@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRC-32 Integrity Verification Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --primary-red: #ff4d4f;
+            --primary-red-hover: #ff7875;
+            --valid-green-bg: #e6f4ea;
+            --valid-green-border: #b7eb8f;
+            --valid-green-text: #135200;
+            --corrupt-red-bg: #fff1f0;
+            --corrupt-red-border: #ffa39e;
+            --corrupt-red-text: #a8071a;
+            --shadow: 0 4px 12px rgba(0,0,0,0.03);
+            --radius: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .dashboard-container {
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .section-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        .section-header {
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            color: #1e293b;
+        }
+
+        /* Upload Area */
+        .upload-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .upload-box-label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        .drop-zone {
+            background-color: #f1f5f9;
+            border: 2px dashed #cbd5e1;
+            border-radius: var(--radius);
+            padding: 16px;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .drop-zone:hover {
+            background-color: #e2e8f0;
+        }
+
+        .file-chip {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 6px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .file-chip .remove-btn {
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-weight: bold;
+        }
+
+        .file-chip .remove-btn:hover {
+            color: var(--primary-red);
+        }
+
+        .add-more-btn {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0 8px;
+        }
+
+        /* Metrics Row */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-top: 10px;
+        }
+
+        .metric-card {
+            background: #fafafa;
+            padding: 16px;
+            border-radius: var(--radius);
+            border: 1px solid #f0f0f0;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        /* Action Button */
+        .btn-check {
+            width: 100%;
+            background-color: var(--primary-red);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: var(--radius);
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-check:hover {
+            background-color: var(--primary-red-hover);
+        }
+
+        /* Alert Banners */
+        .alert-banner {
+            padding: 16px 20px;
+            border-radius: var(--radius);
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-valid {
+            background-color: var(--valid-green-bg);
+            border: 1px solid var(--valid-green-border);
+            color: var(--valid-green-text);
+        }
+
+        .alert-corrupt {
+            background-color: var(--corrupt-red-bg);
+            border: 1px solid var(--corrupt-red-border);
+            color: var(--corrupt-red-text);
+        }
+
+        .sub-description {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+
+        /* Tables */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.88rem;
+        }
+
+        th {
+            background-color: #f8fafc;
+            color: var(--text-secondary);
+            padding: 12px 16px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .status-badge {
+            font-weight: 700;
+        }
+
+        .status-badge.valid {
+            color: #2e7d32;
+        }
+
+        .status-badge.corrupt {
+            color: #c62828;
+        }
+
+        /* File List Rows */
+        .verification-row {
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-download {
+            background-color: #ffffff;
+            border: 1px solid var(--border-color);
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-weight: 600;
+            color: var(--text-primary);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .btn-download:hover {
+            background-color: #f1f5f9;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+
+    <!-- INPUT SECTION -->
+    <div class="section-card">
+        <div class="section-header">
+            📁 File Transmission Input
+        </div>
+
+        <div class="upload-grid">
+            <!-- Original File Input -->
+            <div>
+                <div class="section-header" style="font-size: 1rem; margin-bottom: 8px;">
+                    📥 Original / Transmitted File
+                </div>
+                <div class="upload-box-label">Upload Original File(s)</div>
+                <div class="drop-zone" id="originalDropZone" onclick="document.getElementById('originalFileInput').click()">
+                    <div id="originalFileList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                    <span class="add-more-btn">+</span>
+                </div>
+                <input type="file" id="originalFileInput" multiple style="display: none;" onchange="handleFileSelect(event, 'original')">
+            </div>
+
+            <!-- Received File Input -->
+            <div>
+                <div class="section-header" style="font-size: 1rem; margin-bottom: 8px;">
+                    📥 Received File
+                </div>
+                <div class="upload-box-label">Upload Received File(s)</div>
+                <div class="drop-zone" id="receivedDropZone" onclick="document.getElementById('receivedFileInput').click()">
+                    <div id="receivedFileList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                    <span class="add-more-btn">+</span>
+                </div>
+                <input type="file" id="receivedFileInput" multiple style="display: none;" onchange="handleFileSelect(event, 'received')">
+            </div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 20px 0;">
+
+        <!-- Input Metrics -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">📥 Original Files</div>
+                <div class="metric-value" id="countOriginal">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">📥 Received Files</div>
+                <div class="metric-value" id="countReceived">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">🔗 Matching Pairs</div>
+                <div class="metric-value" id="countPairs">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ACTION BUTTON -->
+    <button class="btn-check" onclick="processCRC32Check()">
+        🔍 CHECK CRC-32 INTEGRITY
+    </button>
+
+    <!-- RESULTS SECTION -->
+    <div id="resultsSection" class="section-card hidden">
+        <div class="section-header">
+            📊 CRC-32 Verification Summary
+        </div>
+
+        <div class="metrics-grid" style="margin-bottom: 24px;">
+            <div class="metric-card">
+                <div class="metric-label">📁 Total Evaluated Files</div>
+                <div class="metric-value" id="summaryTotal">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">✅ Valid Files</div>
+                <div class="metric-value" id="summaryValid">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">❌ Corrupted / Missing Files</div>
+                <div class="metric-value" id="summaryCorrupted">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">📈 Integrity Rate</div>
+                <div class="metric-value" id="summaryRate">0.00%</div>
+            </div>
+        </div>
+
+        <!-- Dynamic Status Banner -->
+        <div id="statusBanner" class="alert-banner alert-valid"></div>
+        <div id="statusDescription" class="sub-description"></div>
+
+        <!-- DETAILED TABLE -->
+        <div class="section-header" style="margin-top: 24px;">
+            📋 Detailed CRC-32 Results
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Test ID</th>
+                        <th>Original File</th>
+                        <th>Received File</th>
+                        <th>Original CRC-32</th>
+                        <th>Received CRC-32</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsTableBody"></tbody>
+            </table>
+        </div>
+
+        <!-- FILE BY FILE LIST -->
+        <div class="section-header" style="margin-top: 32px;">
+            🔎 File-by-File Verification
+        </div>
+        <div id="fileByFileContainer"></div>
+
+        <!-- REPORT DOWNLOAD -->
+        <div class="section-header" style="margin-top: 32px;">
+            📰 Verification Report
+        </div>
+        <div style="text-align: center;">
+            <button class="btn-download" onclick="downloadCSVReport()">
+                ⬇️ Download CRC-32 CSV Report
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let originalFilesMap = new Map();
+    let receivedFilesMap = new Map();
+    let calculatedResults = [];
+
+    // --- IEEE 802.3 Standard CRC-32 Lookup Table Generator ---
+    const crc32Table = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let j = 0; j < 8; j++) {
+            c = (c & 1) ? (0xED888320 ^ (c >>> 1)) : (c >>> 1);
+        }
+        crc32Table[i] = c;
+    }
+
+    function calculateCRC32(arrayBuffer) {
+        let uint8Array = new Uint8Array(arrayBuffer);
+        let crc = 0xFFFFFFFF;
+        for (let i = 0; i < uint8Array.length; i++) {
+            crc = (crc >>> 8) ^ crc32Table[(crc ^ uint8Array[i]) & 0xFF];
+        }
+        return ((crc ^ 0xFFFFFFFF) >>> 0).toString(16).toUpperCase().padStart(8, '0');
+    }
+
+    // --- File Handlers ---
+    function handleFileSelect(event, type) {
+        const files = Array.from(event.target.files);
+        files.forEach(file => {
+            if (type === 'original') originalFilesMap.set(file.name, file);
+            if (type === 'received') receivedFilesMap.set(file.name, file);
+        });
+        updateUI();
+    }
+
+    function removeFile(filename, type, event) {
+        event.stopPropagation();
+        if (type === 'original') originalFilesMap.delete(filename);
+        if (type === 'received') receivedFilesMap.delete(filename);
+        updateUI();
+    }
+
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    function updateUI() {
+        renderFileList('originalFileList', originalFilesMap, 'original');
+        renderFileList('receivedFileList', receivedFilesMap, 'received');
+
+        const countOrig = originalFilesMap.size;
+        const countRec = receivedFilesMap.size;
+        
+        let pairsCount = 0;
+        originalFilesMap.forEach((_, name) => {
+            if (receivedFilesMap.has(name)) pairsCount++;
+        });
+
+        document.getElementById('countOriginal').innerText = countOrig;
+        document.getElementById('countReceived').innerText = countRec;
+        document.getElementById('countPairs').innerText = pairsCount;
+    }
+
+    function renderFileList(elementId, fileMap, type) {
+        const container = document.getElementById(elementId);
+        container.innerHTML = '';
+        fileMap.forEach((file, name) => {
+            const chip = document.createElement('div');
+            chip.className = 'file-chip';
+            chip.innerHTML = `
+                <span>📄</span>
+                <div>
+                    <div>${name}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${formatBytes(file.size)}</div>
+                </div>
+                <span class="remove-btn" onclick="removeFile('${name}', '${type}', event)">✕</span>
+            `;
+            container.appendChild(chip);
+        });
+    }
+
+    // --- Main Calculation Engine ---
+    async function processCRC32Check() {
+        if (originalFilesMap.size === 0 && receivedFilesMap.size === 0) {
+            alert("Please upload at least one file to test.");
+            return;
+        }
+
+        calculatedResults = [];
+        let index = 1;
+        const processedReceivedFiles = new Set();
+
+        // Check all Original Files
+        for (let [filename, origFile] of originalFilesMap.entries()) {
+            const origBuffer = await origFile.arrayBuffer();
+            const origCRC = calculateCRC32(origBuffer);
+
+            if (receivedFilesMap.has(filename)) {
+                // File pair found
+                const recFile = receivedFilesMap.get(filename);
+                processedReceivedFiles.add(filename);
+
+                const recBuffer = await recFile.arrayBuffer();
+                const recCRC = calculateCRC32(recBuffer);
+
+                const isValid = origCRC === recCRC;
+
+                calculatedResults.push({
+                    testId: `TEST-${String(index++).padStart(3, '0')}`,
+                    origName: origFile.name,
+                    recName: recFile.name,
+                    origCRC: origCRC,
+                    recCRC: recCRC,
+                    status: isValid ? 'VALID' : 'CORRUPTED'
+                });
+            } else {
+                // Unmatched Original File (Missing in Received)
+                calculatedResults.push({
+                    testId: `TEST-${String(index++).padStart(3, '0')}`,
+                    origName: origFile.name,
+                    recName: 'MISSING FILE',
+                    origCRC: origCRC,
+                    recCRC: 'N/A',
+                    status: 'CORRUPTED'
+                });
+            }
+        }
+
+        // Check for any standalone Received files missing an Original counterpart
+        for (let [filename, recFile] of receivedFilesMap.entries()) {
+            if (!processedReceivedFiles.has(filename)) {
+                const recBuffer = await recFile.arrayBuffer();
+                const recCRC = calculateCRC32(recBuffer);
+
+                calculatedResults.push({
+                    testId: `TEST-${String(index++).padStart(3, '0')}`,
+                    origName: 'MISSING ORIGINAL',
+                    recName: recFile.name,
+                    origCRC: 'N/A',
+                    recCRC: recCRC,
+                    status: 'CORRUPTED'
+                });
+            }
+        }
+
+        renderResults();
+    }
+
+    function renderResults() {
+        const total = calculatedResults.length;
+        const valid = calculatedResults.filter(r => r.status === 'VALID').length;
+        const corrupted = total - valid;
+        const rate = ((valid / total) * 100).toFixed(2);
+
+        document.getElementById('summaryTotal').innerText = total;
+        document.getElementById('summaryValid').innerText = valid;
+        document.getElementById('summaryCorrupted').innerText = corrupted;
+        document.getElementById('summaryRate').innerText = `${rate}%`;
+
+        const banner = document.getElementById('statusBanner');
+        const desc = document.getElementById('statusDescription');
+
+        if (corrupted === 0) {
+            banner.className = 'alert-banner alert-valid';
+            banner.innerHTML = `✅ ALL ${total} EVALUATED FILES ARE VALID`;
+            desc.innerText = "The CRC-32 values of all Original and Received Files are identical. No corruption or file loss was detected.";
+        } else {
+            banner.className = 'alert-banner alert-corrupt';
+            banner.innerHTML = `⚠️ ${corrupted} OF ${total} EVALUATED FILES ARE CORRUPTED OR UNMATCHED`;
+            desc.innerText = "CRC-32 checksum mismatch or missing file pair detected during verification.";
+        }
+
+        // Render Table
+        const tbody = document.getElementById('resultsTableBody');
+        tbody.innerHTML = '';
+        calculatedResults.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${r.testId}</td>
+                <td>${r.origName}</td>
+                <td>${r.recName}</td>
+                <td><code>${r.origCRC}</code></td>
+                <td><code>${r.recCRC}</code></td>
+                <td class="status-badge ${r.status === 'VALID' ? 'valid' : 'corrupt'}">${r.status}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Render File-by-File Blocks
+        const fbfContainer = document.getElementById('fileByFileContainer');
+        fbfContainer.innerHTML = '';
+        calculatedResults.forEach(r => {
+            const div = document.createElement('div');
+            const isValid = r.status === 'VALID';
+            div.className = `verification-row ${isValid ? 'alert-valid' : 'alert-corrupt'}`;
+            div.innerHTML = `
+                <span>${isValid ? '✅' : '❌'}</span>
+                <span>${r.testId} | ${r.origName} ➔ ${r.recName} | CRC-32: ${r.origCRC} / ${r.recCRC} | ${r.status}</span>
+            `;
+            fbfContainer.appendChild(div);
+        });
+
+        document.getElementById('resultsSection').classList.remove('hidden');
+        document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // --- CSV Exporter ---
+    function downloadCSVReport() {
+        if (calculatedResults.length === 0) return;
+
+        let csv = 'Test ID,Original File,Received File,Original CRC-32,Received CRC-32,Status\n';
+        calculatedResults.forEach(r => {
+            csv += `"${r.testId}","${r.origName}","${r.recName}","${r.origCRC}","${r.recCRC}","${r.status}"\n`;
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', 'CRC32_Verification_Report.csv');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+
+</body>
+</html>
